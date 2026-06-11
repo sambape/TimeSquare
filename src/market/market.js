@@ -15,6 +15,20 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Les crédits ne s'achètent pas : ils se gagnent. Présence passive, bonus
+// quotidien avec série, et succès débloqués en jouant le marché.
+const ACHIEVEMENTS = [
+  { id: 'first_ad', name: 'Première enseigne', desc: 'Créer votre première pub au studio', reward: 50 },
+  { id: 'first_buy', name: 'En ondes', desc: 'Acheter un premier créneau de diffusion', reward: 100 },
+  { id: 'profit', name: 'Trader de minuit', desc: 'Revendre un créneau avec plus-value', reward: 150 },
+  { id: 'triple', name: 'Omniprésent', desc: '3 campagnes actives en même temps', reward: 200 },
+  { id: 'fortune', name: 'Première fortune', desc: 'Détenir 2 500 ¢R', reward: 100 },
+];
+
+function dayKey(ts = Date.now()) {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
 class Market {
   constructor() {
     this.listeners = {};
@@ -28,6 +42,9 @@ class Market {
     this.credits = 1000;
     this.ads = []; // pubs créées par l'utilisateur
     this.campaigns = []; // { id, boardId, adId, secondsLeft, pricePaid, total }
+    this.unlocked = {}; // succès déjà obtenus
+    this.lastDaily = null; // clé jour du dernier bonus quotidien
+    this.streak = 0;
     this.prices = {};
     this.history = {};
     this.deltas = {};
@@ -99,7 +116,51 @@ class Market {
 
   earn() {
     this.credits += PASSIVE_INCOME;
+    if (this.credits >= 2500) this.unlock('fortune');
     this.emit('credits', this.credits);
+  }
+
+  // --- Récompenses ------------------------------------------------------------
+
+  unlock(id) {
+    if (this.unlocked[id]) return;
+    const a = ACHIEVEMENTS.find((x) => x.id === id);
+    if (!a) return;
+    this.unlocked[id] = true;
+    this.credits += a.reward;
+    this.emit('credits', this.credits);
+    this.emit('rewards');
+    this.toast(`Succès « ${a.name} » · +${a.reward} ¢R`, 'success');
+    this.save();
+  }
+
+  getAchievements() {
+    return ACHIEVEMENTS.map((a) => ({ ...a, unlocked: !!this.unlocked[a.id] }));
+  }
+
+  dailyInfo() {
+    const today = dayKey();
+    const available = this.lastDaily !== today;
+    // Série conservée si le dernier bonus date d'hier
+    const yesterday = dayKey(Date.now() - 86400000);
+    const nextStreak = this.lastDaily === yesterday ? this.streak + 1 : 1;
+    const amount = 100 + 25 * (Math.min(available ? nextStreak : this.streak, 7) - 1);
+    return { available, streak: this.streak, nextStreak, amount };
+  }
+
+  claimDaily() {
+    const info = this.dailyInfo();
+    if (!info.available) {
+      this.toast('Bonus déjà récupéré aujourd\'hui — revenez demain', 'info');
+      return;
+    }
+    this.streak = info.nextStreak;
+    this.lastDaily = dayKey();
+    this.credits += info.amount;
+    this.emit('credits', this.credits);
+    this.emit('rewards');
+    this.toast(`Bonus quotidien +${info.amount} ¢R · série de ${this.streak} jour${this.streak > 1 ? 's' : ''}`, 'success');
+    this.save();
   }
 
   // --- Accès ------------------------------------------------------------------
@@ -131,6 +192,7 @@ class Market {
     this.ads.push(ad);
     this.emit('ads');
     this.toast(`Pub « ${ad.name} » enregistrée dans votre portfolio`, 'success');
+    this.unlock('first_ad');
     this.save();
     return ad;
   }
@@ -175,6 +237,8 @@ class Market {
     this.emit('credits', this.credits);
     this.emit('campaigns');
     this.toast(`En ondes ! ${minutes} min sur ${board.name} pour ${cost} ¢R`, 'success');
+    this.unlock('first_buy');
+    if (this.campaigns.length >= 3) this.unlock('triple');
     this.save();
     return campaign;
   }
@@ -190,6 +254,7 @@ class Market {
     this.emit('campaigns');
     const trend = gain >= 0 ? `plus-value de ${gain}` : `moins-value de ${-gain}`;
     this.toast(`Créneau revendu ${value} ¢R (${trend} ¢R)`, gain >= 0 ? 'success' : 'info');
+    if (gain > 0) this.unlock('profit');
     this.save();
   }
 
@@ -207,6 +272,9 @@ class Market {
             ads: this.ads,
             campaigns: this.campaigns,
             prices: this.prices,
+            unlocked: this.unlocked,
+            lastDaily: this.lastDaily,
+            streak: this.streak,
           })
         );
       } catch {
@@ -221,6 +289,9 @@ class Market {
       if (!raw) return;
       const s = JSON.parse(raw);
       if (typeof s.credits === 'number') this.credits = s.credits;
+      if (s.unlocked) this.unlocked = s.unlocked;
+      if (s.lastDaily) this.lastDaily = s.lastDaily;
+      if (typeof s.streak === 'number') this.streak = s.streak;
       if (Array.isArray(s.ads)) this.ads = s.ads;
       if (Array.isArray(s.campaigns)) {
         this.campaigns = s.campaigns.filter((c) => this.getBoard(c.boardId));

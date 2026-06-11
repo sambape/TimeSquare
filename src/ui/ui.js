@@ -4,7 +4,7 @@
 
 import { market } from '../market/market.js';
 import { drawAd, adLabel } from '../ads/adFactory.js';
-import { SIZE_FACTORS } from '../scene/layout.js';
+import { SIZE_FACTORS, VENUES } from '../scene/layout.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -58,23 +58,30 @@ export function createUI({ onFocusBoard, onResetCamera }) {
   let buyMinutes = 5;
   let buyAdId = null;
 
+  const venuePills = VENUES.map(
+    (v) => `<button class="venue ${v.status === 'open' ? 'active' : ''}" ${v.status !== 'open' ? 'disabled' : ''} title="${v.name} · ${v.city}">
+        ${v.name}${v.status !== 'open' ? '<span class="soon">bientôt</span>' : ''}
+      </button>`
+  ).join('');
+
   root.innerHTML = `
     <header id="topbar">
-      <div class="brand"><span class="brand-mark">TSX</span> TIMES SQUARE EXCHANGE</div>
+      <div class="brand"><span class="brand-mark">TSX</span><span class="brand-name">Times Square Exchange</span></div>
+      <nav id="venues">${venuePills}</nav>
       <div class="top-actions">
-        <div class="credits-chip" title="Vos crédits — vous gagnez 1 ¢R par seconde de présence">
-          <span class="credits-label">CRÉDITS</span>
+        <div class="credits-chip" title="Vos crédits — vous gagnez 1 ¢R par seconde de présence. Les crédits ne s'achètent pas.">
           <span id="credits-value">0</span><span class="unit">¢R</span>
         </div>
-        <button id="studio-btn" class="btn btn-accent">+ STUDIO PUB</button>
-        <button id="market-toggle" class="btn btn-ghost">MARCHÉ</button>
+        <button id="rewards-btn" class="btn btn-ghost">Récompenses<span id="rewards-dot" class="hidden">●</span></button>
+        <button id="studio-btn" class="btn btn-dark">Studio pub</button>
+        <button id="market-toggle" class="btn btn-ghost">Marché</button>
       </div>
     </header>
 
     <aside id="market-panel" class="panel">
       <div class="panel-head">
-        <h2>MARCHÉ DES ÉCRANS</h2>
-        <div class="panel-sub">¢R / minute d'antenne · cliquez pour viser l'écran</div>
+        <h2>Marché des écrans</h2>
+        <div class="panel-sub">¢R par minute d'antenne — cliquer pour viser l'écran</div>
       </div>
       <div id="market-list"></div>
     </aside>
@@ -89,13 +96,31 @@ export function createUI({ onFocusBoard, onResetCamera }) {
 
     <footer id="news-ticker"><div id="news-inner"></div></footer>
 
+    <div id="rewards-modal" class="modal hidden">
+      <div class="modal-card modal-narrow">
+        <button id="rewards-close" class="close-btn">✕</button>
+        <h2>Récompenses</h2>
+        <div class="daily-card">
+          <div>
+            <div class="daily-title">Bonus quotidien</div>
+            <div class="daily-sub" id="daily-sub"></div>
+          </div>
+          <button id="daily-claim" class="btn btn-dark"></button>
+        </div>
+        <h3>Succès</h3>
+        <div id="ach-list"></div>
+        <div class="hint">Vous gagnez aussi 1 ¢R par seconde de présence sur la place.
+        Les crédits ne s'achètent pas : ils se gagnent ici.</div>
+      </div>
+    </div>
+
     <div id="studio-modal" class="modal hidden">
       <div class="modal-card">
         <button id="studio-close" class="close-btn">✕</button>
-        <h2>STUDIO PUB</h2>
+        <h2>Studio pub</h2>
         <div class="studio-tabs">
-          <button class="tab active" data-tab="text">COMPOSER</button>
-          <button class="tab" data-tab="image">MON IMAGE</button>
+          <button class="tab active" data-tab="text">Composer</button>
+          <button class="tab" data-tab="image">Mon image</button>
         </div>
         <div class="studio-body">
           <div class="studio-form">
@@ -123,10 +148,10 @@ export function createUI({ onFocusBoard, onResetCamera }) {
           </div>
         </div>
         <div class="modal-actions">
-          <button id="ad-save" class="btn btn-accent">ENREGISTRER LA PUB</button>
+          <button id="ad-save" class="btn btn-dark">Enregistrer la pub</button>
         </div>
         <div id="my-ads">
-          <h3>MON PORTFOLIO</h3>
+          <h3>Mon portfolio</h3>
           <div id="my-ads-list"></div>
         </div>
       </div>
@@ -172,7 +197,7 @@ export function createUI({ onFocusBoard, onResetCamera }) {
       const d = market.deltas[b.id];
       $('.row-price', row).textContent = `${market.price(b.id).toFixed(1)} ¢`;
       $('.row-delta', row).innerHTML = deltaBadge(d);
-      sparkline($('.spark', row), market.history[b.id], d >= 0 ? 'rgb(54,255,160)' : 'rgb(255,80,120)');
+      sparkline($('.spark', row), market.history[b.id], d >= 0 ? 'rgb(20,150,90)' : 'rgb(205,70,70)');
       row.classList.toggle('selected', b.id === selectedBoardId);
     }
   }
@@ -224,7 +249,7 @@ export function createUI({ onFocusBoard, onResetCamera }) {
       </div>
       <canvas id="board-chart" width="290" height="70"></canvas>
 
-      <h3>CAMPAGNES EN ONDES <span class="count">${camps.length}</span></h3>
+      <h3>Campagnes en ondes <span class="count">${camps.length}</span></h3>
       <div class="camp-list">
         ${camps.length === 0 ? '<div class="hint">Aucune campagne — l\'écran diffuse les marques de la ville.</div>' : ''}
         ${camps
@@ -237,13 +262,13 @@ export function createUI({ onFocusBoard, onResetCamera }) {
                 <div class="camp-name">${ad ? adLabel(ad) : '?'}</div>
                 <div class="camp-meta">${mins} min restantes · payé ${c.pricePaid.toFixed(1)} ¢/min</div>
               </div>
-              <button class="btn btn-sell" data-sell="${c.id}">REVENDRE ${value} ¢R</button>
+              <button class="btn btn-sell" data-sell="${c.id}">Revendre ${value} ¢R</button>
             </div>`;
           })
           .join('')}
       </div>
 
-      <h3>ACHETER UN CRÉNEAU</h3>
+      <h3>Acheter un créneau</h3>
       <div class="buy-form">
         <label>Votre pub
           <select id="buy-ad">
@@ -258,19 +283,19 @@ export function createUI({ onFocusBoard, onResetCamera }) {
           <input type="range" id="buy-range" min="1" max="30" value="${buyMinutes}" />
         </label>
         <div class="quote-row">
-          <div><div class="quote-label">COÛT</div><div class="quote-value">${fmt(cost)} ¢R</div></div>
-          <div><div class="quote-label">AUDIENCE EST.</div><div class="quote-value">${fmt(reach)} 👀</div></div>
+          <div><div class="quote-label">Coût</div><div class="quote-value">${fmt(cost)} ¢R</div></div>
+          <div><div class="quote-label">Audience est.</div><div class="quote-value">${fmt(reach)} vues</div></div>
         </div>
         ${
           market.ads.length === 0
-            ? '<button class="btn btn-accent" id="goto-studio">CRÉER MA PREMIÈRE PUB</button>'
-            : `<button class="btn btn-accent" id="buy-btn">ACHETER · ${fmt(cost)} ¢R</button>`
+            ? '<button class="btn btn-dark" id="goto-studio">Créer ma première pub</button>'
+            : `<button class="btn btn-dark" id="buy-btn">Acheter · ${fmt(cost)} ¢R</button>`
         }
-        <div class="hint">Astuce bourse : achetez quand le cours est bas, revendez le temps restant quand il monte (-20% de frais).</div>
+        <div class="hint">Achetez quand le cours est bas, revendez le temps restant quand il monte (20 % de frais).</div>
       </div>
     `;
 
-    sparkline($('#board-chart'), market.history[b.id], d >= 0 ? 'rgb(54,255,160)' : 'rgb(255,80,120)');
+    sparkline($('#board-chart'), market.history[b.id], d >= 0 ? 'rgb(20,150,90)' : 'rgb(205,70,70)');
 
     $('#buy-range')?.addEventListener('input', (e) => {
       buyMinutes = parseInt(e.target.value, 10);
@@ -302,12 +327,12 @@ export function createUI({ onFocusBoard, onResetCamera }) {
     if (!priceEl) return;
     priceEl.innerHTML = `${market.price(b.id).toFixed(1)}<span class="unit"> ¢R/min</span>`;
     $('.board-price .delta-slot', boardContent).innerHTML = deltaBadge(d);
-    sparkline($('#board-chart'), market.history[b.id], d >= 0 ? 'rgb(54,255,160)' : 'rgb(255,80,120)');
+    sparkline($('#board-chart'), market.history[b.id], d >= 0 ? 'rgb(20,150,90)' : 'rgb(205,70,70)');
     const cost = market.quote(b.id, buyMinutes);
     const costEl = $('.quote-value', boardContent);
     if (costEl) costEl.textContent = `${fmt(cost)} ¢R`;
     const buyBtn = $('#buy-btn');
-    if (buyBtn) buyBtn.textContent = `ACHETER · ${fmt(cost)} ¢R`;
+    if (buyBtn) buyBtn.textContent = `Acheter · ${fmt(cost)} ¢R`;
   });
 
   // --- Studio ----------------------------------------------------------------------
@@ -409,7 +434,7 @@ export function createUI({ onFocusBoard, onResetCamera }) {
       drawAd(c.getContext('2d'), 160, 80, ad, 1);
       item.appendChild(c);
       const meta = el('div', 'my-ad-meta', `<div>${adLabel(ad)}</div>`);
-      const del = el('button', 'btn btn-ghost btn-xs', 'SUPPR.');
+      const del = el('button', 'btn btn-ghost btn-xs', 'Suppr.');
       del.addEventListener('click', () => {
         market.deleteAd(ad.id);
         renderMyAds();
@@ -421,6 +446,50 @@ export function createUI({ onFocusBoard, onResetCamera }) {
     }
   }
   market.on('ads', renderMyAds);
+
+  // --- Récompenses ---------------------------------------------------------------------
+
+  const rewardsModal = $('#rewards-modal');
+
+  function renderRewards() {
+    const info = market.dailyInfo();
+    $('#daily-sub').textContent = info.available
+      ? `+${info.amount} ¢R aujourd'hui${info.nextStreak > 1 ? ` · série de ${info.nextStreak} jours` : ''}`
+      : `Récupéré · revenez demain pour continuer la série (${info.streak} jour${info.streak > 1 ? 's' : ''})`;
+    const claim = $('#daily-claim');
+    claim.textContent = info.available ? `Récupérer +${info.amount} ¢R` : 'Demain';
+    claim.disabled = !info.available;
+    $('#rewards-dot').classList.toggle('hidden', !info.available);
+
+    $('#ach-list').innerHTML = market
+      .getAchievements()
+      .map(
+        (a) => `<div class="ach-row ${a.unlocked ? 'done' : ''}">
+          <div class="ach-check">${a.unlocked ? '✓' : ''}</div>
+          <div class="ach-body">
+            <div class="ach-name">${a.name}</div>
+            <div class="ach-desc">${a.desc}</div>
+          </div>
+          <div class="ach-reward">+${a.reward} ¢R</div>
+        </div>`
+      )
+      .join('');
+  }
+
+  $('#rewards-btn').addEventListener('click', () => {
+    rewardsModal.classList.remove('hidden');
+    renderRewards();
+  });
+  $('#rewards-close').addEventListener('click', () => rewardsModal.classList.add('hidden'));
+  rewardsModal.addEventListener('click', (e) => {
+    if (e.target === rewardsModal) rewardsModal.classList.add('hidden');
+  });
+  $('#daily-claim').addEventListener('click', () => {
+    market.claimDaily();
+    renderRewards();
+  });
+  market.on('rewards', renderRewards);
+  renderRewards();
 
   // --- Ticker bas + toasts ------------------------------------------------------------
 

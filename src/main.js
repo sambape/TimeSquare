@@ -21,14 +21,16 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'hi
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.15;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
 
-const HOME_POS = new THREE.Vector3(14, 14, 48);
-const HOME_TARGET = new THREE.Vector3(0, 22, -45);
+// Vue de départ : debout sur la place, légèrement décalé, le regard qui
+// monte vers la tour.
+const HOME_POS = new THREE.Vector3(11, 9, 42);
+const HOME_TARGET = new THREE.Vector3(0, 19, -48);
 camera.position.copy(HOME_POS);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -48,9 +50,9 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.55, // intensité
-  0.65, // rayon
-  0.72 // seuil : seuls les néons et écrans irradient
+  0.42, // intensité : halo discret, pas de soupe néon
+  0.55, // rayon
+  0.78 // seuil : seuls les écrans et phares irradient
 );
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -168,7 +170,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   splash.classList.add('fade-out');
   setTimeout(() => splash.remove(), 900);
   // Petit travelling d'entrée
-  camera.position.set(2, 6, 64);
+  camera.position.set(2, 4, 62);
   startTween(HOME_POS, HOME_TARGET);
 });
 

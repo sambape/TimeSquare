@@ -9,30 +9,37 @@ export const BASE_PRICES = { XL: 120, L: 80, M: 50, S: 30 };
 const D90 = Math.PI / 2;
 const D40 = (40 * Math.PI) / 180;
 
+// Les places disponibles : Times Square est jouable, les suivantes arrivent.
+export const VENUES = [
+  { id: 'times-square', name: 'Times Square', city: 'New York', status: 'open' },
+  { id: 'piccadilly', name: 'Piccadilly Circus', city: 'Londres', status: 'soon' },
+  { id: 'chinatown', name: 'Chinatown', city: 'San Francisco', status: 'soon' },
+];
+
 export const BOARD_DEFS = [
   // --- La tour : trois écrans incurvés empilés, face à la place ---
-  { id: 'ts-top',  name: 'TOUR · COURONNE',  size: 'XL', w: 12.6, h: 17,  position: [0, 63, -70], rotY: 0, curve: { radius: 9.2 } },
-  { id: 'ts-mid',  name: 'TOUR · MÉDIANE',   size: 'XL', w: 12.6, h: 14,  position: [0, 45, -70], rotY: 0, curve: { radius: 9.2 } },
-  { id: 'ts-low',  name: 'TOUR · PARVIS',    size: 'XL', w: 12.6, h: 20,  position: [0, 25, -70], rotY: 0, curve: { radius: 9.2 } },
+  { id: 'ts-top',  name: 'TOUR · COURONNE',  size: 'XL', w: 12.6, h: 18,  position: [0, 64, -70], rotY: 0, curve: { radius: 9.2 } },
+  { id: 'ts-mid',  name: 'TOUR · MÉDIANE',   size: 'XL', w: 12.6, h: 15,  position: [0, 46, -70], rotY: 0, curve: { radius: 9.2 } },
+  { id: 'ts-low',  name: 'TOUR · PARVIS',    size: 'XL', w: 12.6, h: 22,  position: [0, 26, -70], rotY: 0, curve: { radius: 9.2 } },
 
-  // --- Écrans d'angle, en biais de part et d'autre de la tour ---
-  { id: 'bow-w',   name: 'BOWTIE OUEST',     size: 'L',  w: 12,  h: 8,    position: [-17.5, 18, -56.5], rotY: D40 },
-  { id: 'bow-e',   name: 'BOWTIE EST',       size: 'L',  w: 12,  h: 8,    position: [17.5, 18, -56.5],  rotY: -D40 },
+  // --- Écrans d'angle incurvés, enroulés autour des immeubles du bowtie ---
+  { id: 'bow-w',   name: 'BOWTIE OUEST',     size: 'L',  w: 14,  h: 10,   position: [-19.5, 18, -58.5], rotY: D40, curve: { radius: 7 } },
+  { id: 'bow-e',   name: 'BOWTIE EST',       size: 'L',  w: 14,  h: 10,   position: [19.5, 18, -58.5],  rotY: -D40, curve: { radius: 7 } },
 
   // --- Façades ouest (x négatif, écrans tournés vers la rue) ---
-  { id: 'w-mega',  name: 'OUEST · MEGA',     size: 'XL', w: 22, h: 12,    position: [-27.7, 30, -38], rotY: D90 },
-  { id: 'w-duo',   name: 'OUEST · DUO',      size: 'M',  w: 14, h: 7,     position: [-27.7, 15, -38], rotY: D90 },
-  { id: 'w-tower', name: 'OUEST · COLONNE',  size: 'L',  w: 11, h: 17,    position: [-27.7, 27, -8],  rotY: D90 },
-  { id: 'w-strip', name: 'OUEST · RUBAN',    size: 'S',  w: 9,  h: 5,     position: [-27.7, 11, -8],  rotY: D90 },
-  { id: 'w-plaza', name: 'OUEST · PLAZA',    size: 'L',  w: 18, h: 10,    position: [-27.7, 23, 22],  rotY: D90 },
+  { id: 'w-mega',  name: 'OUEST · MEGA',     size: 'XL', w: 26, h: 15,    position: [-27.7, 31, -38], rotY: D90 },
+  { id: 'w-duo',   name: 'OUEST · DUO',      size: 'M',  w: 16, h: 8,     position: [-27.7, 16, -38], rotY: D90 },
+  { id: 'w-tower', name: 'OUEST · COLONNE',  size: 'L',  w: 12, h: 20,    position: [-27.7, 28, -8],  rotY: D90 },
+  { id: 'w-strip', name: 'OUEST · RUBAN',    size: 'S',  w: 10, h: 5.5,   position: [-27.7, 11, -8],  rotY: D90 },
+  { id: 'w-plaza', name: 'OUEST · PLAZA',    size: 'L',  w: 20, h: 11,    position: [-27.7, 24, 22],  rotY: D90 },
 
   // --- Façades est (x positif) ---
-  { id: 'e-mega',  name: 'EST · MEGA',       size: 'XL', w: 24, h: 14,    position: [27.7, 29, -42], rotY: -D90 },
-  { id: 'e-mini',  name: 'EST · CARRÉ',      size: 'M',  w: 12, h: 6,     position: [27.7, 14, -42], rotY: -D90 },
-  { id: 'e-totem', name: 'EST · TOTEM',      size: 'L',  w: 13, h: 18,    position: [27.7, 30, -10], rotY: -D90 },
-  { id: 'e-bloc',  name: 'EST · BLOC',       size: 'M',  w: 10, h: 8,     position: [27.7, 13, -10], rotY: -D90 },
-  { id: 'e-night', name: 'EST · NOCTURNE',   size: 'L',  w: 16, h: 9,     position: [27.7, 25, 20],  rotY: -D90 },
-  { id: 'e-pop',   name: 'EST · POP',        size: 'S',  w: 8,  h: 6,     position: [27.7, 11.5, 20], rotY: -D90 },
+  { id: 'e-mega',  name: 'EST · MEGA',       size: 'XL', w: 28, h: 16,    position: [27.7, 30, -42], rotY: -D90 },
+  { id: 'e-mini',  name: 'EST · CARRÉ',      size: 'M',  w: 13, h: 7,     position: [27.7, 14, -42], rotY: -D90 },
+  { id: 'e-totem', name: 'EST · TOTEM',      size: 'L',  w: 14, h: 20,    position: [27.7, 31, -10], rotY: -D90 },
+  { id: 'e-bloc',  name: 'EST · BLOC',       size: 'M',  w: 11, h: 9,     position: [27.7, 13.5, -10], rotY: -D90 },
+  { id: 'e-night', name: 'EST · NOCTURNE',   size: 'L',  w: 18, h: 10,    position: [27.7, 26, 20],  rotY: -D90 },
+  { id: 'e-pop',   name: 'EST · POP',        size: 'S',  w: 9,  h: 6.5,   position: [27.7, 11.5, 20], rotY: -D90 },
 ];
 
 // Bandeau défilant des cours (pas un actif du marché, il LES affiche).

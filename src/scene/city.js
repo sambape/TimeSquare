@@ -19,7 +19,7 @@ function makeWindowTexture(seed, tint) {
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   for (let y = 4; y < 252; y += 9) {
     for (let x = 4; x < 124; x += 7) {
-      if (rnd() < 0.42) {
+      if (rnd() < 0.26) {
         const warm = rnd() < 0.65;
         const a = 0.35 + rnd() * 0.65;
         ctx.fillStyle = warm
@@ -83,20 +83,20 @@ function addBuildings(scene) {
       metalness: 0.1,
       emissive: 0xffffff,
       emissiveMap: windowTextures[i % windowTextures.length],
-      emissiveIntensity: 0.55,
+      emissiveIntensity: 0.35,
     });
 
   BUILDING_DEFS.forEach(([x, z, w, d, h], i) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), makeMat(i));
     mesh.position.set(x, h / 2, z);
     scene.add(mesh);
-    // Couronne lumineuse sur certains toits
-    if (i % 3 === 0) {
+    // Fin liseré blanc sur quelques toits, discret
+    if (i % 4 === 0) {
       const trim = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.3, 0.5, d + 0.3),
-        new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff3da6 : 0x29f3ff })
+        new THREE.BoxGeometry(w + 0.2, 0.25, d + 0.2),
+        new THREE.MeshBasicMaterial({ color: 0xcfd6e6 })
       );
-      trim.position.set(x, h + 0.25, z);
+      trim.position.set(x, h + 0.12, z);
       scene.add(trim);
     }
   });
@@ -185,6 +185,17 @@ function addGround(scene) {
     scene.add(line);
   }
 
+  // Passages piétons
+  const stripeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.8 });
+  for (const cz of [-32, 34]) {
+    for (let x = -11; x <= 11; x += 2.2) {
+      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 4.4), stripeMat);
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.set(x, 0.062, cz);
+      scene.add(stripe);
+    }
+  }
+
   // Trottoirs
   const sideMat = new THREE.MeshStandardMaterial({ color: 0x1c1d26, roughness: 0.9 });
   for (const sx of [-1, 1]) {
@@ -196,6 +207,49 @@ function addGround(scene) {
   const plaza = new THREE.Mesh(new THREE.BoxGeometry(34, 0.4, 18), sideMat);
   plaza.position.set(0, 0.2, -55);
   scene.add(plaza);
+
+  // Bollards le long des trottoirs
+  const bollardMat = new THREE.MeshStandardMaterial({ color: 0x2a2c36, roughness: 0.5, metalness: 0.7 });
+  const capMat = new THREE.MeshBasicMaterial({ color: 0xb8c2d8 });
+  for (const sx of [-13.2, 13.2]) {
+    for (let z = -44; z <= 56; z += 11) {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 1.1, 8), bollardMat);
+      b.position.set(sx, 0.55, z);
+      scene.add(b);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.06, 8), capMat);
+      cap.position.set(sx, 1.12, z);
+      scene.add(cap);
+    }
+  }
+}
+
+// Les marches rouges emblématiques de la place (façon escaliers TKTS),
+// posées sur le parvis face à la tour.
+function addRedSteps(scene) {
+  const stepMat = new THREE.MeshStandardMaterial({
+    color: 0x5e0a14,
+    roughness: 0.25,
+    metalness: 0.1,
+    emissive: 0xc41a2e,
+    emissiveIntensity: 0.32,
+    transparent: true,
+    opacity: 0.92,
+  });
+  const steps = 11;
+  for (let i = 0; i < steps; i++) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(17, 0.5, 1.15), stepMat);
+    // L'escalier monte vers la tour (vers -z)
+    step.position.set(0, 0.65 + i * 0.5, -47.5 - i * 1.15);
+    scene.add(step);
+  }
+  // Palier sommital
+  const top = new THREE.Mesh(new THREE.BoxGeometry(17, 0.5, 2.6), stepMat);
+  top.position.set(0, 0.65 + steps * 0.5, -47.5 - steps * 1.15 - 0.8);
+  scene.add(top);
+  // Lueur douce au pied des marches
+  const glow = new THREE.PointLight(0xff4455, 26, 26, 2);
+  glow.position.set(0, 4, -50);
+  scene.add(glow);
 }
 
 function addLamps(scene) {
@@ -247,22 +301,24 @@ function addDust(scene) {
 }
 
 export function createCity(scene) {
-  scene.background = new THREE.Color(0x05060e);
-  scene.fog = new THREE.FogExp2(0x0a0a1a, 0.006);
+  scene.background = new THREE.Color(0x05060c);
+  scene.fog = new THREE.FogExp2(0x090a14, 0.0045);
 
-  scene.add(new THREE.AmbientLight(0x303a66, 0.7));
-  const moon = new THREE.DirectionalLight(0x4a5a99, 0.5);
+  scene.add(new THREE.AmbientLight(0x39405c, 0.7));
+  const moon = new THREE.DirectionalLight(0x55628c, 0.45);
   moon.position.set(40, 80, 30);
   scene.add(moon);
-  // Lueur d'ensemble du square (les écrans "éclairent" la place)
-  const glow = new THREE.PointLight(0xff66cc, 120, 90, 2);
+  // Lueur d'ensemble du square : les écrans "éclairent" la place en
+  // blancs chauds/froids neutres plutôt qu'en néons saturés.
+  const glow = new THREE.PointLight(0xffe7d2, 110, 90, 2);
   glow.position.set(0, 24, -50);
   scene.add(glow);
-  const glow2 = new THREE.PointLight(0x33ccff, 80, 80, 2);
+  const glow2 = new THREE.PointLight(0xd6e4ff, 70, 80, 2);
   glow2.position.set(0, 20, 5);
   scene.add(glow2);
 
   addGround(scene);
+  addRedSteps(scene);
   addBuildings(scene);
   addSkyline(scene);
   addLamps(scene);
@@ -271,7 +327,7 @@ export function createCity(scene) {
   return {
     update(dt, time) {
       dust.rotation.y = time * 0.004;
-      glow.intensity = 110 + Math.sin(time * 2.1) * 18;
+      glow.intensity = 104 + Math.sin(time * 2.1) * 12;
     },
   };
 }

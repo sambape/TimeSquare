@@ -7,10 +7,14 @@ publicitaires géants se tradent comme des actions.
 
 ## Le concept
 
-- **Un monde 3D vivant** : canyon d'immeubles aux fenêtres allumées, la tour
-  emblématique et ses trois écrans incurvés empilés, 16 panneaux
-  publicitaires animés, taxis jaunes, asphalte mouillé avec reflets temps
-  réel, brume, poussière lumineuse et bandeau boursier qui défile.
+- **Un monde 3D vivant** : la place avec ses marches rouges emblématiques,
+  la tour et ses trois écrans incurvés empilés, deux écrans d'angle
+  enroulés autour des immeubles du bowtie, 16 panneaux animés au total,
+  quelques taxis jaunes, asphalte mouillé avec reflets temps réel, brume et
+  bandeau boursier qui défile.
+- **Plusieurs places à terme** : Times Square est jouable ; Piccadilly
+  Circus (Londres) et Chinatown (San Francisco) sont annoncées dans le
+  sélecteur de places — même marché, autres écrans.
 - **Une bourse de l'attention** : chaque écran est un actif coté en
   **¢R/minute d'antenne**. Le cours suit une marche aléatoire à retour vers
   la moyenne, dopée par la demande (plus un écran diffuse de campagnes, plus
@@ -21,7 +25,10 @@ publicitaires géants se tradent comme des actions.
 - **Tradez votre temps d'antenne** : revendez à tout moment le temps restant
   d'une campagne à 80 % du cours actuel. Acheté bas, revendu haut → plus-value.
 - **Crédits** : vous démarrez avec 1 000 ¢R et gagnez 1 ¢R par seconde de
-  présence dans le square. Tout est persisté en local (localStorage).
+  présence dans le square, plus un **bonus quotidien avec série** et des
+  **succès** récompensés (première pub, première plus-value, etc.). Les
+  crédits ne s'achètent pas : ils se gagnent. Tout est persisté en local
+  (localStorage).
 
 ## Lancer
 
@@ -33,16 +40,17 @@ npm run build    # build de production dans dist/
 
 ## Direction artistique & rendu
 
-- Nuit permanente, palette néon assumée : cyan `#29f3ff`, magenta `#ff3da6`,
-  ambre `#ffc24b` sur fond d'encre `#05060e`.
-- Tone mapping **ACES Filmic** + **UnrealBloomPass** : seuls les écrans, néons
-  et phares dépassent le seuil et irradient.
+- La scène fait le spectacle, l'interface s'efface : UI minimaliste claire
+  (cartes blanches, traits fins, typographie Inter, un seul accent rouge
+  `#e63312`), aucun glow côté DOM.
+- Nuit permanente côté 3D : tone mapping **ACES Filmic** +
+  **UnrealBloomPass** discret — seuls les écrans et les phares irradient.
 - Sol en **Reflector** (miroir temps réel) sous une couche d'asphalte percée
   de flaques procédurales : les écrans se reflètent dans la rue mouillée.
+- Détails de place : marches rouges, bollards, passages piétons, fenêtres
+  atténuées, trafic réduit — l'attention reste sur les écrans.
 - Tous les visuels publicitaires sont dessinés en Canvas 2D (trame LED,
   vignette, reflet) et projetés en `CanvasTexture` — aucun asset externe.
-- UI « salle des marchés » : verre dépoli, sparklines, ticker, typographies
-  Unbounded / Space Grotesk.
 
 ## Architecture
 

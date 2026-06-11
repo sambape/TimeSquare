@@ -52,10 +52,12 @@ class Board {
     if (def.curve) {
       const r = def.curve.radius;
       const arc = def.w / r;
-      // Arc centré sur +Z, normales vers l'extérieur : face à la place.
+      // Arc centré sur +Z, normales vers l'extérieur ; rotY oriente
+      // l'enroulement (écrans d'angle du bowtie).
       geo = new THREE.CylinderGeometry(r, r, def.h, 24, 1, true, -arc / 2, arc);
       this.mesh = new THREE.Mesh(geo, this.material);
       this.mesh.position.set(def.position[0], def.position[1], def.position[2]);
+      this.mesh.rotation.y = def.rotY;
     } else {
       geo = new THREE.PlaneGeometry(def.w, def.h);
       this.mesh = new THREE.Mesh(geo, this.material);
@@ -102,10 +104,9 @@ class Board {
       this.current = this.playlist[this.itemIndex];
       this.redraw(time);
     }
-    // Scintillement LED + micro-glitch occasionnel
-    const flicker = 1.45 + 0.07 * Math.sin(time * 9 + this.index * 2.4);
-    const glitch = Math.random() < 0.002 ? 0.6 : 1;
-    this.material.color.setScalar(flicker * glitch);
+    // Respiration LED très légère — premium, pas glitch
+    const flicker = 1.45 + 0.035 * Math.sin(time * 6 + this.index * 2.4);
+    this.material.color.setScalar(flicker);
   }
 }
 
