@@ -4,7 +4,8 @@
 
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { BUILDING_DEFS, ANGLED_BUILDINGS, TOWER } from './layout.js';
+import { BUILDING_DEFS, ANGLED_BUILDINGS, TOWER, STREET, STEPS } from './layout.js';
+import { makeDotTexture } from './nature.js';
 
 // --- Textures procédurales ---------------------------------------------------
 
@@ -135,34 +136,51 @@ function addSkyline(scene) {
   });
   let s = 31;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const mesh = new THREE.InstancedMesh(geo, mat, 60);
+  const count = 150;
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
   const m = new THREE.Matrix4();
-  for (let i = 0; i < 60; i++) {
-    const x = (rnd() * 2 - 1) * 160;
-    const z = -100 - rnd() * 90;
-    const w = 10 + rnd() * 18;
-    const h = 30 + rnd() * 110;
-    m.makeScale(w, h, 10 + rnd() * 14);
+  let placed = 0;
+  let guard = 0;
+  while (placed < count && guard++ < 2000) {
+    // Une ceinture urbaine tout autour du monde jouable : derrière la tour,
+    // au-delà du parc, et sur les flancs.
+    const x = (rnd() * 2 - 1) * 290;
+    const z = -160 + rnd() * 460;
+    if (x > -95 && x < 95 && z > -110 && z < 215) continue; // zone jouable
+    const w = 10 + rnd() * 20;
+    const h = 26 + rnd() * (z < -60 ? 120 : 90);
+    m.makeScale(w, h, 10 + rnd() * 16);
     m.setPosition(x, h / 2, z);
-    mesh.setMatrixAt(i, m);
+    mesh.setMatrixAt(placed, m);
+    placed++;
   }
+  mesh.count = placed;
   scene.add(mesh);
 }
 
-function addGround(scene) {
-  // Miroir temps réel sous une couche d'asphalte percée de flaques.
-  const reflector = new Reflector(new THREE.PlaneGeometry(140, 200), {
+function addGround(scene, world) {
+  // Grand sol de base sous tout le monde (rue, arrière-cours, parc)
+  const base = new THREE.Mesh(
+    new THREE.PlaneGeometry(320, 460),
+    new THREE.MeshStandardMaterial({ color: 0x0b0c12, roughness: 1 })
+  );
+  base.rotation.x = -Math.PI / 2;
+  base.position.set(0, -0.02, 30);
+  scene.add(base);
+
+  // Miroir temps réel sous une couche d'asphalte percée de flaques (zone rue).
+  const reflector = new Reflector(new THREE.PlaneGeometry(140, 215), {
     clipBias: 0.003,
     textureWidth: 1024,
     textureHeight: 1024,
     color: 0x9aa0b8,
   });
   reflector.rotation.x = -Math.PI / 2;
-  reflector.position.set(0, 0, -15);
+  reflector.position.set(0, 0, -12.5);
   scene.add(reflector);
 
   const asphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(140, 200),
+    new THREE.PlaneGeometry(140, 215),
     new THREE.MeshStandardMaterial({
       color: 0x14151d,
       roughness: 0.95,
@@ -173,12 +191,12 @@ function addGround(scene) {
     })
   );
   asphalt.rotation.x = -Math.PI / 2;
-  asphalt.position.set(0, 0.04, -15);
+  asphalt.position.set(0, 0.04, -12.5);
   scene.add(asphalt);
 
   // Marquage central jaune
   const lineMat = new THREE.MeshBasicMaterial({ color: 0x8f7a22 });
-  for (let z = -85; z < 65; z += 8) {
+  for (let z = -85; z < 92; z += 8) {
     const line = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 4), lineMat);
     line.rotation.x = -Math.PI / 2;
     line.position.set(0, 0.06, z);
@@ -187,7 +205,7 @@ function addGround(scene) {
 
   // Passages piétons
   const stripeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.8 });
-  for (const cz of [-32, 34]) {
+  for (const cz of [-32, 34, 88]) {
     for (let x = -11; x <= 11; x += 2.2) {
       const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 4.4), stripeMat);
       stripe.rotation.x = -Math.PI / 2;
@@ -196,11 +214,11 @@ function addGround(scene) {
     }
   }
 
-  // Trottoirs
+  // Trottoirs — la rue file maintenant jusqu'au parc
   const sideMat = new THREE.MeshStandardMaterial({ color: 0x1c1d26, roughness: 0.9 });
   for (const sx of [-1, 1]) {
-    const sw = new THREE.Mesh(new THREE.BoxGeometry(14, 0.5, 170), sideMat);
-    sw.position.set(sx * 20.5, 0.25, -15);
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(14, 0.5, STREET.zMax - STREET.zMin), sideMat);
+    sw.position.set(sx * 20.5, 0.25, (STREET.zMin + STREET.zMax) / 2);
     scene.add(sw);
   }
   // Parvis devant la tour
@@ -212,13 +230,14 @@ function addGround(scene) {
   const bollardMat = new THREE.MeshStandardMaterial({ color: 0x2a2c36, roughness: 0.5, metalness: 0.7 });
   const capMat = new THREE.MeshBasicMaterial({ color: 0xb8c2d8 });
   for (const sx of [-13.2, 13.2]) {
-    for (let z = -44; z <= 56; z += 11) {
+    for (let z = -44; z <= 89; z += 11) {
       const b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 1.1, 8), bollardMat);
       b.position.set(sx, 0.55, z);
       scene.add(b);
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.06, 8), capMat);
       cap.position.set(sx, 1.12, z);
       scene.add(cap);
+      world.addCircle(sx, z, 0.32);
     }
   }
 }
@@ -235,16 +254,16 @@ function addRedSteps(scene) {
     transparent: true,
     opacity: 0.92,
   });
-  const steps = 11;
-  for (let i = 0; i < steps; i++) {
-    const step = new THREE.Mesh(new THREE.BoxGeometry(17, 0.5, 1.15), stepMat);
+  // Mêmes constantes que groundHeightAt : l'escalier se monte à pied.
+  for (let i = 0; i < STEPS.count; i++) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(STEPS.xHalf * 2, 0.5, STEPS.depth), stepMat);
     // L'escalier monte vers la tour (vers -z)
-    step.position.set(0, 0.65 + i * 0.5, -47.5 - i * 1.15);
+    step.position.set(0, STEPS.baseY + i * STEPS.stepH, STEPS.startZ - i * STEPS.depth);
     scene.add(step);
   }
   // Palier sommital
-  const top = new THREE.Mesh(new THREE.BoxGeometry(17, 0.5, 2.6), stepMat);
-  top.position.set(0, 0.65 + steps * 0.5, -47.5 - steps * 1.15 - 0.8);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(STEPS.xHalf * 2, 0.5, 2.6), stepMat);
+  top.position.set(0, STEPS.baseY + STEPS.count * STEPS.stepH, STEPS.startZ - STEPS.count * STEPS.depth - 0.8);
   scene.add(top);
   // Lueur douce au pied des marches
   const glow = new THREE.PointLight(0xff4455, 26, 26, 2);
@@ -252,9 +271,10 @@ function addRedSteps(scene) {
   scene.add(glow);
 }
 
-function addLamps(scene) {
+function addLamps(scene, world) {
   const lampPositions = [
     [-14, -40], [14, -28], [-14, -4], [14, 8], [-14, 32], [14, 44],
+    [-14, 58], [14, 70], [-14, 84],
   ];
   const postMat = new THREE.MeshStandardMaterial({ color: 0x16161c, roughness: 0.6, metalness: 0.6 });
   const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
@@ -267,6 +287,7 @@ function addLamps(scene) {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8), bulbMat);
     bulb.position.set(x, 7.6, z);
     scene.add(bulb);
+    world.addCircle(x, z, 0.3);
   }
   // Quelques vraies lumières seulement (perf) : une sur deux
   for (let i = 0; i < lampPositions.length; i += 2) {
@@ -290,6 +311,7 @@ function addDust(scene) {
   const mat = new THREE.PointsMaterial({
     color: 0x88aaff,
     size: 0.18,
+    map: makeDotTexture(),
     transparent: true,
     opacity: 0.35,
     blending: THREE.AdditiveBlending,
@@ -300,9 +322,11 @@ function addDust(scene) {
   return points;
 }
 
-export function createCity(scene) {
+export function createCity(scene, world) {
   scene.background = new THREE.Color(0x05060c);
-  scene.fog = new THREE.FogExp2(0x090a14, 0.0045);
+  // Brouillard plus lointain : le monde est grand, le parc doit se voir
+  // depuis la place (le dôme de ciel n'est pas embrumé).
+  scene.fog = new THREE.FogExp2(0x090a14, 0.0028);
 
   scene.add(new THREE.AmbientLight(0x39405c, 0.7));
   const moon = new THREE.DirectionalLight(0x55628c, 0.45);
@@ -317,11 +341,11 @@ export function createCity(scene) {
   glow2.position.set(0, 20, 5);
   scene.add(glow2);
 
-  addGround(scene);
+  addGround(scene, world);
   addRedSteps(scene);
   addBuildings(scene);
   addSkyline(scene);
-  addLamps(scene);
+  addLamps(scene, world);
   const dust = addDust(scene);
 
   return {

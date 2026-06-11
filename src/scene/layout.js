@@ -52,11 +52,13 @@ export const BUILDING_DEFS = [
   [-34.5, -8, 13, 26, 84],
   [-34.5, 22, 13, 28, 56],
   [-34.5, 52, 13, 24, 70],
+  [-34.5, 79, 13, 26, 46],
   // Côté est
   [34.5, -42, 13, 32, 76],
   [34.5, -10, 13, 28, 96],
   [34.5, 20, 13, 26, 60],
   [34.5, 50, 13, 24, 66],
+  [34.5, 78, 13, 24, 72],
   // Fond de place, derrière la tour
   [-22, -78, 20, 14, 52],
   [22, -78, 20, 14, 58],
@@ -69,3 +71,27 @@ export const ANGLED_BUILDINGS = [
 ];
 
 export const TOWER = { position: [0, -70], w: 13, d: 13, h: 88 };
+
+// --- Géométrie du sol praticable -----------------------------------------------
+
+// La rue file le long de Z ; les trottoirs (h 0,5) bordent la chaussée.
+// zMin déborde volontairement des WORLD_BOUNDS : le décor continue derrière
+// la tour, mais le joueur n'y va pas.
+export const STREET = { roadHalf: 13.5, sidewalkOuter: 27.5, zMin: -105, zMax: 95 };
+
+// Parvis devant la tour (h 0,4) et marches rouges montables (façon TKTS).
+export const PLAZA = { xHalf: 17, zMin: -64, zMax: -46 };
+export const STEPS = { xHalf: 8.5, startZ: -47.5, depth: 1.15, count: 11, baseY: 0.65, stepH: 0.5 };
+
+// Le parc au bout de l'avenue : pelouse, étang, chemin sinueux.
+export const PARK = {
+  xMin: -68, xMax: 68, zMin: 98, zMax: 188,
+  pond: { x: 18, z: 150, r: 12 },
+  // Chemin : x = pathX(z), praticable partout mais guide la promenade
+  pathX: (z) => Math.sin((z - 98) * 0.075) * 9 - 4,
+};
+
+// Limites du monde pour le joueur et la caméra — affleurent les faces
+// intérieures des haies du parc (x ±67,8 ; z 188,15) pour éviter tout mur
+// invisible avant l'obstacle visible.
+export const WORLD_BOUNDS = { xMin: -67.3, xMax: 67.3, zMin: -86, zMax: 187.6 };

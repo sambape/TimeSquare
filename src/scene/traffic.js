@@ -11,9 +11,10 @@ const LANES = [
 ];
 
 // Le bowtie (z < -36) est piéton : les voitures n'y entrent pas et
-// apparaissent/disparaissent en fondu aux extrémités de leur tronçon.
+// apparaissent/disparaissent en fondu aux extrémités de leur tronçon
+// (qui s'arrête avant le parc).
 const Z_MIN = -36;
-const Z_MAX = 64;
+const Z_MAX = 86;
 const FADE = 8;
 
 function buildCar(isTaxi) {
@@ -69,7 +70,7 @@ function buildCar(isTaxi) {
 export function createTraffic(scene) {
   // Peu de voitures : la place appartient aux écrans et aux piétons.
   const cars = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const lane = LANES[i % LANES.length];
     const isTaxi = Math.random() < 0.7;
     const car = buildCar(isTaxi);
@@ -90,6 +91,21 @@ export function createTraffic(scene) {
         const fade = Math.min(1, (z - Z_MIN) / FADE, (Z_MAX - z) / FADE);
         c.car.visible = fade > 0.02;
         for (const m of c.car.userData.materials) m.opacity = Math.max(0, fade);
+      }
+    },
+    // Les voitures écartent doucement le piéton au lieu de le traverser.
+    pushPlayer(pos, radius) {
+      for (const c of cars) {
+        if (!c.car.visible) continue;
+        const dx = pos.x - c.car.position.x;
+        const dz = pos.z - c.car.position.z;
+        const min = 2.6 + radius;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < min * min && d2 > 1e-6) {
+          const d = Math.sqrt(d2);
+          pos.x = c.car.position.x + (dx / d) * min;
+          pos.z = c.car.position.z + (dz / d) * min;
+        }
       }
     },
   };

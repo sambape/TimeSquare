@@ -7,11 +7,17 @@ publicitaires géants se tradent comme des actions.
 
 ## Le concept
 
-- **Un monde 3D vivant** : la place avec ses marches rouges emblématiques,
-  la tour et ses trois écrans incurvés empilés, deux écrans d'angle
-  enroulés autour des immeubles du bowtie, 16 panneaux animés au total,
-  quelques taxis jaunes, asphalte mouillé avec reflets temps réel, brume et
-  bandeau boursier qui défile.
+- **Un monde 3D vivant, à pied** : vous incarnez un petit new-yorkais en
+  veste jaune (ZQSD/WASD pour marcher, Maj pour courir, Espace pour sauter,
+  souris pour la caméra, molette pour zoomer). Collisions avec les façades
+  et le mobilier, marches rouges montables, taxis qui vous écartent doucement.
+- **La place** : ses marches rouges emblématiques, la tour et ses trois
+  écrans incurvés empilés, deux écrans d'angle enroulés autour des immeubles
+  du bowtie, 16 panneaux animés au total, asphalte mouillé avec reflets
+  temps réel, brume et bandeau boursier qui défile.
+- **Un parc au bout de l'avenue** : pelouse, chemin sinueux, étang-miroir,
+  arbres low-poly, bancs, guirlandes lumineuses et lucioles — sous un dôme
+  de ciel étoilé avec lune et nuages dérivants.
 - **Plusieurs places à terme** : Times Square est jouable ; Piccadilly
   Circus (Londres) et Chinatown (San Francisco) sont annoncées dans le
   sélecteur de places — même marché, autres écrans.
@@ -56,12 +62,15 @@ npm run build    # build de production dans dist/
 
 ```
 src/
-├── main.js               Rendu, post-processing, caméra, raycasting
+├── main.js               Rendu, post-processing, raycasting, liaison scène/UI
 ├── scene/
-│   ├── layout.js         Source de vérité : écrans + immeubles
+│   ├── layout.js         Source de vérité : écrans, immeubles, rue, parc
 │   ├── city.js           Décor, sol mouillé, lumières, skyline
 │   ├── billboards.js     Écrans, playlists, ticker boursier 3D
-│   └── traffic.js        Taxis en boucle
+│   ├── traffic.js        Taxis en boucle (et qui écartent le piéton)
+│   ├── collision.js      Monde de collision 2D + hauteur du sol praticable
+│   ├── player.js         Le bonhomme : avatar, contrôles, caméra d'épaule
+│   └── nature.js         Ciel, lune, étoiles, nuages, parc, arbres, étang
 ├── market/market.js      La bourse : cours, achats, reventes, persistance
 ├── ads/adFactory.js      Visuels Canvas 2D (marques fictives + pubs joueur)
 └── ui/ui.js              Panneaux marché/fiche écran, studio, toasts
