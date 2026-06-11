@@ -149,7 +149,8 @@ export function createPlayer(scene, camera, domElement, world) {
   window.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     camYaw -= (e.clientX - lastX) * 0.0052;
-    camPitch = THREE.MathUtils.clamp(camPitch + (e.clientY - lastY) * 0.004, 0.06, 1.25);
+    // Pitch négatif = caméra au ras du sol, regard levé vers les écrans
+    camPitch = THREE.MathUtils.clamp(camPitch + (e.clientY - lastY) * 0.004, -0.95, 1.25);
     lastX = e.clientX;
     lastY = e.clientY;
   });
@@ -246,6 +247,11 @@ export function createPlayer(scene, camera, domElement, world) {
     const lookTarget = focus
       ? focus.target
       : new THREE.Vector3(player.position.x, player.position.y + 1.9, player.position.z);
+    // Pitch négatif : la caméra descend au ras du sol et le regard se lève —
+    // la cible monte au-dessus du bonhomme, vers les écrans et le ciel.
+    if (!focus && camPitch < 0) {
+      lookTarget.y += -camPitch * camDist * 1.7;
+    }
 
     let desired;
     if (focus) {
