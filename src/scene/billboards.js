@@ -42,7 +42,7 @@ class Board {
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.anisotropy = 4;
+    this.texture.anisotropy = 8; // écrans nets même vus en biais depuis le trottoir
 
     this.material = new THREE.MeshBasicMaterial({ map: this.texture });
     // > 1 pour que les écrans dépassent le seuil du bloom et irradient
@@ -96,12 +96,16 @@ class Board {
     this.redraw(performance.now() / 1000);
   }
 
-  update(dt, time) {
+  update(dt, time, frame) {
     this.timer += dt;
     if (this.timer >= ROTATION_SECONDS) {
       this.timer = 0;
       this.itemIndex = (this.itemIndex + 1) % this.playlist.length;
       this.current = this.playlist[this.itemIndex];
+      this.redraw(time);
+    }
+    // Une pub vidéo se redessine en continu (30 fps suffisent à un écran LED)
+    if (this.current.kind === 'video' && (frame + this.index) % 2 === 0) {
       this.redraw(time);
     }
     // Respiration LED très légère — premium, pas glitch
@@ -179,8 +183,8 @@ export function createBillboards(scene) {
     meshes,
     boards,
     update(dt, time) {
-      for (const b of boards) b.update(dt, time);
       frame++;
+      for (const b of boards) b.update(dt, time, frame);
       if (frame % 2 === 0) ticker.update(dt * 2); // 30 fps suffisent au bandeau
     },
   };

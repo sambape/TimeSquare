@@ -3,7 +3,8 @@
 // studio de création de pub, ticker bas et toasts.
 
 import { market } from '../market/market.js';
-import { drawAd, adLabel } from '../ads/adFactory.js';
+import { drawAd, adLabel, registerVideo, releaseVideo } from '../ads/adFactory.js';
+import { saveVideo, deleteVideo } from '../ads/videoStore.js';
 import { SIZE_FACTORS, VENUES } from '../scene/layout.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -136,6 +137,7 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
         <div class="studio-tabs">
           <button class="tab active" data-tab="text">Composer</button>
           <button class="tab" data-tab="image">Mon image</button>
+          <button class="tab" data-tab="video">Ma vidéo</button>
         </div>
         <div class="studio-body">
           <div class="studio-form">
@@ -155,6 +157,14 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
               </label>
               <div class="hint">L'image est recadrée plein écran et stockée localement.</div>
               <label>Nom de la pub<input id="ad-img-name" maxlength="24" placeholder="Ma campagne" /></label>
+            </div>
+            <div data-pane="video" class="hidden">
+              <label class="file-label">
+                <input type="file" id="ad-video-file" accept="video/*" />
+                <span>Choisir une vidéo…</span>
+              </label>
+              <div class="hint">Lue en boucle et sans son sur les écrans, stockée localement (50 Mo max).</div>
+              <label>Nom de la pub<input id="ad-video-name" maxlength="24" placeholder="Ma campagne vidéo" /></label>
             </div>
           </div>
           <div class="studio-preview">
@@ -401,6 +411,8 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
   const modal = $('#studio-modal');
   let studioTab = 'text';
   let uploadedDataUrl = null;
+  const DRAFT_VIDEO_ID = 'draft-video';
+  let draftVideo = null; // { blob, url } en attente d'enregistrement
   const previewCanvas = $('#ad-preview');
 
   function currentDraft() {
@@ -409,6 +421,14 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
         kind: 'image',
         name: $('#ad-img-name').value.trim() || 'Ma campagne',
         dataUrl: uploadedDataUrl,
+        id: 'draft',
+      };
+    }
+    if (studioTab === 'video') {
+      return {
+        kind: 'video',
+        name: $('#ad-video-name').value.trim() || 'Ma campagne vidéo',
+        videoId: draftVideo ? DRAFT_VIDEO_ID : null,
         id: 'draft',
       };
     }
@@ -426,9 +446,9 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
   let previewT = 0;
   setInterval(() => {
     if (modal.classList.contains('hidden')) return;
-    previewT += 0.25;
+    previewT += 0.12;
     drawAd(previewCanvas.getContext('2d'), 512, 256, currentDraft(), previewT);
-  }, 250);
+  }, 120);
 
   function openStudio() {
     modal.classList.remove('hidden');
@@ -467,11 +487,43 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
     if (!$('#ad-img-name').value) $('#ad-img-name').value = file.name.replace(/\.[^.]+$/, '');
   });
 
-  $('#ad-save').addEventListener('click', () => {
+  $('#ad-video-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      market.toast('Vidéo trop lourde : 50 Mo maximum', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (draftVideo) URL.revokeObjectURL(draftVideo.url);
+    const url = URL.createObjectURL(file);
+    draftVideo = { blob: file, url };
+    registerVideo(DRAFT_VIDEO_ID, url); // l'aperçu démarre immédiatement
+    if (!$('#ad-video-name').value) $('#ad-video-name').value = file.name.replace(/\.[^.]+$/, '');
+  });
+
+  $('#ad-save').addEventListener('click', async () => {
     const draft = currentDraft();
     if (draft.kind === 'image' && !draft.dataUrl) {
       market.toast('Choisissez une image avant d\'enregistrer', 'error');
       return;
+    }
+    if (draft.kind === 'video') {
+      if (!draftVideo) {
+        market.toast('Choisissez une vidéo avant d\'enregistrer', 'error');
+        return;
+      }
+      const videoId = `vid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      try {
+        await saveVideo(videoId, draftVideo.blob);
+      } catch {
+        market.toast('Stockage local indisponible pour la vidéo', 'error');
+        return;
+      }
+      registerVideo(videoId, draftVideo.url); // déjà décodée : réutilisée telle quelle
+      draft.videoId = videoId;
+      draftVideo = null;
+      $('#ad-video-file').value = '';
     }
     delete draft.id;
     const ad = market.addUserAd(draft);
@@ -497,7 +549,11 @@ export function createUI({ onFocusBoard, onResetCamera, player }) {
       const meta = el('div', 'my-ad-meta', `<div>${adLabel(ad)}</div>`);
       const del = el('button', 'btn btn-ghost btn-xs', 'Suppr.');
       del.addEventListener('click', () => {
-        market.deleteAd(ad.id);
+        const ok = market.deleteAd(ad.id);
+        if (ok && ad.kind === 'video' && ad.videoId) {
+          releaseVideo(ad.videoId);
+          deleteVideo(ad.videoId);
+        }
         renderMyAds();
         if (selectedBoardId) renderBoardPanel();
       });

@@ -1,7 +1,10 @@
 // Fabrique de visuels publicitaires : tout est dessiné en Canvas 2D puis
-// projeté sur les écrans 3D via CanvasTexture. Trois sources possibles :
+// projeté sur les écrans 3D via CanvasTexture. Quatre sources possibles :
 // les marques fictives "de remplissage", les pubs texte composées par
-// l'utilisateur, et les images uploadées.
+// l'utilisateur, les images uploadées et les vidéos uploadées (lues en
+// boucle, muettes, recopiées image par image sur le canvas de l'écran).
+
+import { getVideoURL } from './videoStore.js';
 
 function lerpColor(a, b, t) {
   const pa = parseInt(a.slice(1), 16);
@@ -300,6 +303,78 @@ function drawUserTextAd(ctx, w, h, ad, t) {
   }
 }
 
+// --- Vidéos -------------------------------------------------------------------
+
+const videoCache = new Map();
+
+// Élément <video> partagé entre tous les écrans qui diffusent cette pub.
+// Créé paresseusement ; la source arrive d'IndexedDB (ou d'un brouillon).
+export function getAdVideo(ad) {
+  if (!ad.videoId) return null;
+  let v = videoCache.get(ad.videoId);
+  if (!v) {
+    v = makeVideoElement();
+    videoCache.set(ad.videoId, v);
+    getVideoURL(ad.videoId).then((url) => {
+      if (url && !v.src) {
+        v.src = url;
+        v.play().catch(() => {});
+      }
+    });
+  }
+  return v.readyState >= 2 && v.videoWidth > 0 ? v : null;
+}
+
+function makeVideoElement() {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.preload = 'auto';
+  return v;
+}
+
+// Le studio enregistre ici la vidéo fraîchement uploadée (URL d'objet),
+// pour l'aperçu immédiat et pour éviter une relecture d'IndexedDB.
+export function registerVideo(videoId, objectUrl) {
+  let v = videoCache.get(videoId);
+  if (!v) {
+    v = makeVideoElement();
+    videoCache.set(videoId, v);
+  }
+  v.src = objectUrl;
+  v.play().catch(() => {});
+}
+
+export function releaseVideo(videoId) {
+  const v = videoCache.get(videoId);
+  if (v) {
+    v.pause();
+    v.removeAttribute('src');
+  }
+  videoCache.delete(videoId);
+}
+
+function drawUserVideoAd(ctx, w, h, ad) {
+  const v = getAdVideo(ad);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+  if (!v) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = `700 ${h * 0.12}px ${BODY_FONT}`;
+    ctx.fillText('VIDÉO…', w / 2, h / 2);
+    return;
+  }
+  // Cover fit
+  const vr = v.videoWidth / v.videoHeight;
+  const cr = w / h;
+  let dw, dh;
+  if (vr > cr) { dh = h; dw = h * vr; } else { dw = w; dh = w / vr; }
+  ctx.drawImage(v, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+
 function drawUserImageAd(ctx, w, h, ad) {
   const img = getAdImage(ad);
   ctx.fillStyle = '#000';
@@ -319,12 +394,14 @@ function drawUserImageAd(ctx, w, h, ad) {
 
 // --- Point d'entrée ---------------------------------------------------------
 
-// item : { kind: 'brand', brandIndex } | pub utilisateur { kind:'text'|'image', ... }
+// item : { kind: 'brand', brandIndex } | pub utilisateur { kind:'text'|'image'|'video', ... }
 export function drawAd(ctx, w, h, item, t = 0) {
   if (item.kind === 'brand') {
     BRANDS[item.brandIndex % BRANDS.length].draw(ctx, w, h, t);
   } else if (item.kind === 'image') {
     drawUserImageAd(ctx, w, h, item);
+  } else if (item.kind === 'video') {
+    drawUserVideoAd(ctx, w, h, item);
   } else {
     drawUserTextAd(ctx, w, h, item, t);
   }

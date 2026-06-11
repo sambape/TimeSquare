@@ -1,0 +1,15 @@
+# Déploiement Netlify : site statique Vite, rien d'autre à configurer.
+# Connecter le dépôt sur app.netlify.com (ou `netlify deploy --prod`).
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Les assets fingerprintés par Vite peuvent être mis en cache pour toujours.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

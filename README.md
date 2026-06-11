@@ -25,8 +25,9 @@ publicitaires géants se tradent comme des actions.
   **¢R/minute d'antenne**. Le cours suit une marche aléatoire à retour vers
   la moyenne, dopée par la demande (plus un écran diffuse de campagnes, plus
   son cours grimpe).
-- **Vos pubs dans la ville** : composez une pub néon (texte, dégradés) ou
-  uploadez votre image dans le **Studio Pub**, puis achetez des minutes de
+- **Vos pubs dans la ville** : composez une pub néon (texte, dégradés),
+  uploadez votre image ou votre **vidéo** (lue en boucle, sans son, stockée
+  en IndexedDB) dans le **Studio Pub**, puis achetez des minutes de
   diffusion sur l'écran de votre choix.
 - **Tradez votre temps d'antenne** : revendez à tout moment le temps restant
   d'une campagne à 80 % du cours actuel. Acheté bas, revendu haut → plus-value.
@@ -43,6 +44,13 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # build de production dans dist/
 ```
+
+## Héberger sur Netlify
+
+Le dépôt contient un `netlify.toml` prêt à l'emploi : connectez le repo sur
+[app.netlify.com](https://app.netlify.com) (« Add new site → Import an
+existing project ») et Netlify détecte tout — `npm run build`, publication
+de `dist/`, Node 20. En CLI : `npx netlify-cli deploy --prod`.
 
 ## Direction artistique & rendu
 
