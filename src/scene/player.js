@@ -14,26 +14,50 @@ const JUMP_VELOCITY = 8.2;
 const PLAYER_RADIUS = 0.45;
 const STEP_UP_MAX = 0.65; // on monte une marche, pas un muret
 
+// --- Profil du personnage (nom + couleurs), persisté en localStorage ------------
+
+const PROFILE_KEY = 'tsx-player-profile';
+const DEFAULT_PROFILE = {
+  name: 'Promeneur',
+  jacket: '#d9a514',
+  beanie: '#c0392b',
+  pants: '#23263a',
+  skin: '#e8b58a',
+};
+
+function loadProfile() {
+  try {
+    return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}') };
+  } catch {
+    return { ...DEFAULT_PROFILE };
+  }
+}
+
+function saveProfile(profile) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    // localStorage plein ou bloqué : le profil vivra le temps de la session
+  }
+}
+
 // --- Construction du personnage ------------------------------------------------
 
-function buildCharacter() {
+function buildCharacter(profile) {
   const group = new THREE.Group();
 
   // Légère auto-illumination : le personnage se lit dans la nuit sans
   // qu'une lumière proche ne brûle la veste sous le bloom.
-  const jacket = new THREE.MeshStandardMaterial({
-    color: 0xd9a514, roughness: 0.6, metalness: 0.05,
-    emissive: 0xd9a514, emissiveIntensity: 0.28,
-  });
-  const pants = new THREE.MeshStandardMaterial({
-    color: 0x23263a, roughness: 0.8, emissive: 0x23263a, emissiveIntensity: 0.25,
-  });
-  const skin = new THREE.MeshStandardMaterial({
-    color: 0xe8b58a, roughness: 0.7, emissive: 0xe8b58a, emissiveIntensity: 0.22,
-  });
-  const wool = new THREE.MeshStandardMaterial({
-    color: 0xc0392b, roughness: 0.9, emissive: 0xc0392b, emissiveIntensity: 0.25,
-  });
+  const dressed = (hex, roughness, intensity) => {
+    const mat = new THREE.MeshStandardMaterial({ roughness, metalness: 0.05, emissiveIntensity: intensity });
+    mat.color.set(hex);
+    mat.emissive.set(hex);
+    return mat;
+  };
+  const jacket = dressed(profile.jacket, 0.6, 0.28);
+  const pants = dressed(profile.pants, 0.8, 0.25);
+  const skin = dressed(profile.skin, 0.7, 0.22);
+  const wool = dressed(profile.beanie, 0.9, 0.25);
   const stripe = new THREE.MeshBasicMaterial({ color: 0x9fb8d8 });
 
   // Jambes — pivot à la hanche (géométrie décalée vers le bas)
@@ -85,17 +109,63 @@ function buildCharacter() {
   lantern.position.set(0, 1.9, 0.5);
   group.add(lantern);
 
-  return { group, legL, legR, armL, armR };
+  return { group, legL, legR, armL, armR, materials: { jacket, pants, skin, beanie: wool } };
+}
+
+// --- Étiquette de nom au-dessus de la tête ---------------------------------------
+
+function makeNameTag() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 112;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true })
+  );
+  sprite.position.y = 2.32;
+  sprite.scale.set(2.4, 0.52, 1);
+
+  function setText(name) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const text = (name || '').trim().slice(0, 16);
+    sprite.visible = text.length > 0;
+    if (!sprite.visible) {
+      texture.needsUpdate = true;
+      return;
+    }
+    ctx.font = "700 52px 'Inter', system-ui, sans-serif";
+    const w = Math.min(490, ctx.measureText(text).width + 56);
+    const x = (canvas.width - w) / 2;
+    // Pastille sombre translucide, à la façon des tooltips de la place
+    ctx.fillStyle = 'rgba(8, 9, 16, 0.72)';
+    ctx.beginPath();
+    ctx.roundRect(x, 18, w, 76, 38);
+    ctx.fill();
+    ctx.fillStyle = '#f4f6fb';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, 58);
+    texture.needsUpdate = true;
+  }
+
+  return { sprite, setText };
 }
 
 // --- Contrôleur ------------------------------------------------------------------
 
 export function createPlayer(scene, camera, domElement, world) {
-  const parts = buildCharacter();
+  const profile = loadProfile();
+  const parts = buildCharacter(profile);
   const player = parts.group;
   player.position.set(10, 0, 8); // bord de chaussée, hors des voies des taxis
   player.rotation.y = Math.PI; // face à la tour
   scene.add(player);
+
+  const nameTag = makeNameTag();
+  nameTag.setText(profile.name);
+  player.add(nameTag.sprite);
 
   // État physique
   const vel = new THREE.Vector3();
@@ -305,6 +375,20 @@ export function createPlayer(scene, camera, domElement, world) {
       camYaw = heading + Math.PI;
       camPitch = 0.32;
       camDist = 9.5;
+    },
+    // --- Personnalisation ---
+    getProfile: () => ({ ...profile }),
+    setName(name) {
+      profile.name = (name || '').trim().slice(0, 16);
+      nameTag.setText(profile.name);
+      saveProfile(profile);
+    },
+    setColor(part, hex) {
+      if (!(part in parts.materials)) return;
+      profile[part] = hex;
+      parts.materials[part].color.set(hex);
+      parts.materials[part].emissive.set(hex);
+      saveProfile(profile);
     },
   };
 }

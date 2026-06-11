@@ -52,7 +52,7 @@ function sparkline(canvas, data, color) {
   ctx.fill();
 }
 
-export function createUI({ onFocusBoard, onResetCamera }) {
+export function createUI({ onFocusBoard, onResetCamera, player }) {
   const root = $('#ui-root');
   let selectedBoardId = null;
   let buyMinutes = 5;
@@ -73,6 +73,7 @@ export function createUI({ onFocusBoard, onResetCamera }) {
           <span id="credits-value">0</span><span class="unit">¢R</span>
         </div>
         <button id="rewards-btn" class="btn btn-ghost">Récompenses<span id="rewards-dot" class="hidden">●</span></button>
+        <button id="player-btn" class="btn btn-ghost">Personnage</button>
         <button id="studio-btn" class="btn btn-dark">Studio pub</button>
         <button id="market-toggle" class="btn btn-ghost">Marché</button>
       </div>
@@ -111,6 +112,20 @@ export function createUI({ onFocusBoard, onResetCamera }) {
         <div id="ach-list"></div>
         <div class="hint">Vous gagnez aussi 1 ¢R par seconde de présence sur la place.
         Les crédits ne s'achètent pas : ils se gagnent ici.</div>
+      </div>
+    </div>
+
+    <div id="player-modal" class="modal hidden">
+      <div class="modal-card modal-narrow">
+        <button id="player-close" class="close-btn">✕</button>
+        <h2>Mon personnage</h2>
+        <div class="studio-form">
+          <label>Nom affiché au-dessus de la tête
+            <input id="player-name" maxlength="16" placeholder="Promeneur" />
+          </label>
+        </div>
+        <div id="player-swatches"></div>
+        <div class="hint">Le bonhomme change en direct sur la place — tout est enregistré localement.</div>
       </div>
     </div>
 
@@ -334,6 +349,52 @@ export function createUI({ onFocusBoard, onResetCamera }) {
     const buyBtn = $('#buy-btn');
     if (buyBtn) buyBtn.textContent = `Acheter · ${fmt(cost)} ¢R`;
   });
+
+  // --- Personnage --------------------------------------------------------------------
+
+  const playerModal = $('#player-modal');
+  // Palettes choisies pour rester lisibles dans la nuit néon de la place
+  const PLAYER_PALETTES = [
+    { part: 'jacket', label: 'Veste', colors: ['#d9a514', '#c0392b', '#2f6db8', '#2faa6b', '#8e44ad', '#d05a8c', '#dfe3ea', '#23252e'] },
+    { part: 'beanie', label: 'Bonnet', colors: ['#c0392b', '#1f3a5c', '#1e6e4e', '#d9a514', '#d05a8c', '#e07020', '#dfe3ea', '#23252e'] },
+    { part: 'pants', label: 'Pantalon', colors: ['#23263a', '#15161c', '#5a4632', '#6a6f7a', '#3a5a40', '#7a2733'] },
+    { part: 'skin', label: 'Peau', colors: ['#f5d0a9', '#e8b58a', '#c68d5e', '#9c6b43', '#6f4a2f'] },
+  ];
+
+  if (player) {
+    const swatchRoot = $('#player-swatches');
+    const profile = player.getProfile();
+    for (const { part, label, colors } of PLAYER_PALETTES) {
+      const group = el('div', 'swatch-group');
+      group.innerHTML = `<div class="swatch-label">${label}</div>`;
+      const row = el('div', 'swatches');
+      for (const hex of colors) {
+        const dot = el('button', 'swatch');
+        dot.style.background = hex;
+        dot.title = hex;
+        dot.classList.toggle('selected', hex === profile[part]);
+        dot.addEventListener('click', () => {
+          player.setColor(part, hex);
+          row.querySelectorAll('.swatch').forEach((s) => s.classList.toggle('selected', s === dot));
+        });
+        row.appendChild(dot);
+      }
+      group.appendChild(row);
+      swatchRoot.appendChild(group);
+    }
+
+    const nameInput = $('#player-name');
+    nameInput.value = profile.name;
+    nameInput.addEventListener('input', () => player.setName(nameInput.value));
+
+    $('#player-btn').addEventListener('click', () => playerModal.classList.remove('hidden'));
+    $('#player-close').addEventListener('click', () => playerModal.classList.add('hidden'));
+    playerModal.addEventListener('click', (e) => {
+      if (e.target === playerModal) playerModal.classList.add('hidden');
+    });
+  } else {
+    $('#player-btn').classList.add('hidden');
+  }
 
   // --- Studio ----------------------------------------------------------------------
 

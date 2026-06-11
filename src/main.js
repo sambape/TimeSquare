@@ -67,7 +67,7 @@ function focusBoard(boardId) {
 
 // --- UI ------------------------------------------------------------------------
 
-const ui = createUI({ onFocusBoard: focusBoard, onResetCamera: () => player.resetCamera() });
+const ui = createUI({ onFocusBoard: focusBoard, onResetCamera: () => player.resetCamera(), player });
 
 // --- Interaction 3D ---------------------------------------------------------------
 
