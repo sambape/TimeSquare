@@ -9,33 +9,131 @@ import { makeDotTexture } from './nature.js';
 
 // --- Textures procédurales ---------------------------------------------------
 
+// Façade : la carte émissive (fenêtres allumées) et la carte de couleur
+// (panneaux, meneaux, bandeaux d'étage) sont dessinées ensemble, en haute
+// résolution — c'est ce qui donne aux immeubles leur lecture "réelle".
 function makeWindowTexture(seed, tint) {
-  const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 256;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, 128, 256);
+  const W = 256;
+  const H = 512;
+  const emissiveC = document.createElement('canvas');
+  emissiveC.width = W;
+  emissiveC.height = H;
+  const ec = emissiveC.getContext('2d');
+  const facadeC = document.createElement('canvas');
+  facadeC.width = W;
+  facadeC.height = H;
+  const fc = facadeC.getContext('2d');
+
   let s = seed;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  for (let y = 4; y < 252; y += 9) {
-    for (let x = 4; x < 124; x += 7) {
-      if (rnd() < 0.26) {
-        const warm = rnd() < 0.65;
-        const a = 0.35 + rnd() * 0.65;
-        ctx.fillStyle = warm
-          ? `rgba(255,${200 + Math.floor(rnd() * 40)},140,${a})`
-          : `rgba(${140 + Math.floor(rnd() * 60)},220,255,${a})`;
-        ctx.fillRect(x, y, 4, 6);
+
+  // Fond émissif noir, façade en panneaux sombres légèrement variés
+  ec.fillStyle = '#000';
+  ec.fillRect(0, 0, W, H);
+  fc.fillStyle = '#171a24';
+  fc.fillRect(0, 0, W, H);
+
+  const floorH = 18; // un étage
+  const winW = 8;
+  const winH = 10;
+  const stepX = 13;
+
+  for (let y = 6; y < H - floorH; y += floorH) {
+    // Bandeau d'étage (béton) sur la carte de couleur
+    fc.fillStyle = 'rgba(8,9,14,0.9)';
+    fc.fillRect(0, y - 4, W, 3);
+    fc.fillStyle = 'rgba(255,255,255,0.05)';
+    fc.fillRect(0, y - 1, W, 1);
+
+    // Certains étages sont des plateaux de bureaux entièrement éclairés
+    const officeFloor = rnd() < 0.07;
+    for (let x = 5; x < W - winW; x += stepX) {
+      // Meneaux verticaux
+      fc.fillStyle = 'rgba(6,7,11,0.85)';
+      fc.fillRect(x - 3, y - 4, 2, floorH);
+      // Vitre éteinte : un soupçon de reflet de ciel
+      fc.fillStyle = `rgba(58,70,98,${0.18 + rnd() * 0.14})`;
+      fc.fillRect(x, y, winW, winH);
+
+      const lit = officeFloor ? rnd() < 0.85 : rnd() < 0.24;
+      if (lit) {
+        const warm = rnd() < 0.62;
+        const a = 0.3 + rnd() * 0.7;
+        ec.fillStyle = warm
+          ? `rgba(255,${198 + Math.floor(rnd() * 44)},${128 + Math.floor(rnd() * 40)},${a})`
+          : `rgba(${138 + Math.floor(rnd() * 64)},${205 + Math.floor(rnd() * 40)},255,${a})`;
+        ec.fillRect(x, y, winW, winH);
+        // Dégradé interne : le fond de la pièce est plus sombre
+        ec.fillStyle = `rgba(0,0,0,${0.25 + rnd() * 0.3})`;
+        ec.fillRect(x, y + winH * 0.55, winW, winH * 0.45);
+        // Halo doux sur la façade autour de la fenêtre allumée
+        fc.fillStyle = `rgba(255,220,170,${0.05 + a * 0.05})`;
+        fc.fillRect(x - 2, y - 2, winW + 4, winH + 4);
       }
     }
   }
+
   if (tint) {
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = tint;
-    ctx.fillRect(0, 0, 128, 256);
+    ec.globalCompositeOperation = 'multiply';
+    ec.fillStyle = tint;
+    ec.fillRect(0, 0, W, H);
+  }
+
+  const emissive = new THREE.CanvasTexture(emissiveC);
+  emissive.colorSpace = THREE.SRGBColorSpace;
+  const map = new THREE.CanvasTexture(facadeC);
+  map.colorSpace = THREE.SRGBColorSpace;
+  return { emissive, map };
+}
+
+// Bruit de surface générique (asphalte, béton, pelouse) : la matière
+// cesse d'être un aplat dès qu'on s'approche.
+export function makeNoiseTexture(base, variation, opts = {}) {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() * 2 - 1) * variation;
+    d[i] += n;
+    d[i + 1] += n;
+    d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+  // Joints de dalles (béton des trottoirs)
+  if (opts.slabs) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 2;
+    for (let p = 0; p <= size; p += size / opts.slabs) {
+      ctx.beginPath();
+      ctx.moveTo(p, 0);
+      ctx.lineTo(p, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, p);
+      ctx.lineTo(size, p);
+      ctx.stroke();
+    }
+  }
+  // Taches sombres (usure, humidité)
+  if (opts.stains) {
+    for (let i = 0; i < opts.stains; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const r = 10 + Math.random() * 36;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(0,0,0,0.18)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+    }
   }
   const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -77,19 +175,23 @@ function addBuildings(scene) {
     makeWindowTexture(777, '#ffd9aa'),
   ];
 
-  const makeMat = (i) =>
-    new THREE.MeshStandardMaterial({
-      color: 0x0c0d14,
+  const makeMat = (i) => {
+    const t = windowTextures[i % windowTextures.length];
+    return new THREE.MeshStandardMaterial({
+      color: 0xffffff, // la carte de façade porte déjà sa propre teinte
+      map: t.map,
       roughness: 0.85,
       metalness: 0.1,
       emissive: 0xffffff,
-      emissiveMap: windowTextures[i % windowTextures.length],
-      emissiveIntensity: 0.35,
+      emissiveMap: t.emissive,
+      emissiveIntensity: 0.42,
     });
+  };
 
   BUILDING_DEFS.forEach(([x, z, w, d, h], i) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), makeMat(i));
     mesh.position.set(x, h / 2, z);
+    mesh.castShadow = true;
     scene.add(mesh);
     // Fin liseré blanc sur quelques toits, discret
     if (i % 4 === 0) {
@@ -106,6 +208,7 @@ function addBuildings(scene) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), makeMat(i + 1));
     mesh.position.set(b.position[0], b.h / 2, b.position[1]);
     mesh.rotation.y = b.rotY;
+    mesh.castShadow = true;
     scene.add(mesh);
   });
 
@@ -115,6 +218,7 @@ function addBuildings(scene) {
     new THREE.MeshStandardMaterial({ color: 0x101019, roughness: 0.7, metalness: 0.3 })
   );
   tower.position.set(TOWER.position[0], TOWER.h / 2, TOWER.position[1]);
+  tower.castShadow = true;
   scene.add(tower);
 
   const spire = new THREE.Mesh(
@@ -160,12 +264,15 @@ function addSkyline(scene) {
 
 function addGround(scene, world) {
   // Grand sol de base sous tout le monde (rue, arrière-cours, parc)
+  const baseTex = makeNoiseTexture('#0b0c12', 7, { stains: 14 });
+  baseTex.repeat.set(24, 34);
   const base = new THREE.Mesh(
     new THREE.PlaneGeometry(320, 460),
-    new THREE.MeshStandardMaterial({ color: 0x0b0c12, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map: baseTex, roughness: 1 })
   );
   base.rotation.x = -Math.PI / 2;
   base.position.set(0, -0.02, 30);
+  base.receiveShadow = true;
   scene.add(base);
 
   // Miroir temps réel sous une couche d'asphalte percée de flaques (zone rue).
@@ -179,10 +286,12 @@ function addGround(scene, world) {
   reflector.position.set(0, 0, -12.5);
   scene.add(reflector);
 
+  const asphaltTex = makeNoiseTexture('#15161e', 9, { stains: 20 });
+  asphaltTex.repeat.set(10, 16);
   const asphalt = new THREE.Mesh(
     new THREE.PlaneGeometry(140, 215),
     new THREE.MeshStandardMaterial({
-      color: 0x14151d,
+      map: asphaltTex,
       roughness: 0.95,
       transparent: true,
       opacity: 0.85,
@@ -192,6 +301,7 @@ function addGround(scene, world) {
   );
   asphalt.rotation.x = -Math.PI / 2;
   asphalt.position.set(0, 0.04, -12.5);
+  asphalt.receiveShadow = true;
   scene.add(asphalt);
 
   // Marquage central jaune
@@ -214,16 +324,25 @@ function addGround(scene, world) {
     }
   }
 
-  // Trottoirs — la rue file maintenant jusqu'au parc
-  const sideMat = new THREE.MeshStandardMaterial({ color: 0x1c1d26, roughness: 0.9 });
+  // Trottoirs — béton à dalles, la rue file maintenant jusqu'au parc
+  const sidewalkTex = makeNoiseTexture('#1d1e28', 8, { slabs: 4, stains: 8 });
+  sidewalkTex.repeat.set(2.4, 34);
+  const sideMat = new THREE.MeshStandardMaterial({ map: sidewalkTex, roughness: 0.9 });
   for (const sx of [-1, 1]) {
     const sw = new THREE.Mesh(new THREE.BoxGeometry(14, 0.5, STREET.zMax - STREET.zMin), sideMat);
     sw.position.set(sx * 20.5, 0.25, (STREET.zMin + STREET.zMax) / 2);
+    sw.receiveShadow = true;
     scene.add(sw);
   }
   // Parvis devant la tour
-  const plaza = new THREE.Mesh(new THREE.BoxGeometry(34, 0.4, 18), sideMat);
+  const plazaTex = makeNoiseTexture('#1d1e28', 8, { slabs: 6, stains: 5 });
+  plazaTex.repeat.set(6, 3);
+  const plaza = new THREE.Mesh(
+    new THREE.BoxGeometry(34, 0.4, 18),
+    new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.9 })
+  );
   plaza.position.set(0, 0.2, -55);
+  plaza.receiveShadow = true;
   scene.add(plaza);
 
   // Bollards le long des trottoirs
@@ -246,11 +365,11 @@ function addGround(scene, world) {
 // posées sur le parvis face à la tour.
 function addRedSteps(scene) {
   const stepMat = new THREE.MeshStandardMaterial({
-    color: 0x5e0a14,
-    roughness: 0.25,
+    color: 0x4a0810,
+    roughness: 0.3,
     metalness: 0.1,
     emissive: 0xc41a2e,
-    emissiveIntensity: 0.32,
+    emissiveIntensity: 0.22,
     transparent: true,
     opacity: 0.92,
   });
@@ -259,6 +378,7 @@ function addRedSteps(scene) {
     const step = new THREE.Mesh(new THREE.BoxGeometry(STEPS.xHalf * 2, 0.5, STEPS.depth), stepMat);
     // L'escalier monte vers la tour (vers -z)
     step.position.set(0, STEPS.baseY + i * STEPS.stepH, STEPS.startZ - i * STEPS.depth);
+    step.receiveShadow = true;
     scene.add(step);
   }
   // Palier sommital
@@ -280,13 +400,30 @@ function addLamps(scene, world) {
   const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
   bulbMat.color.multiplyScalar(2.2);
 
+  // Faux volume lumineux sous chaque lampadaire : un cône additif très
+  // discret qui suggère la brume éclairée.
+  const coneMat = new THREE.MeshBasicMaterial({
+    color: 0xffd9a0,
+    transparent: true,
+    opacity: 0.045,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: false,
+  });
+  const coneGeo = new THREE.CylinderGeometry(0.3, 2.4, 6.8, 12, 1, true);
+
   for (const [x, z] of lampPositions) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 7.5, 6), postMat);
     post.position.set(x, 3.75, z);
+    post.castShadow = true;
     scene.add(post);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8), bulbMat);
     bulb.position.set(x, 7.6, z);
     scene.add(bulb);
+    const cone = new THREE.Mesh(coneGeo, coneMat);
+    cone.position.set(x, 4.1, z);
+    scene.add(cone);
     world.addCircle(x, z, 0.3);
   }
   // Quelques vraies lumières seulement (perf) : une sur deux
@@ -329,9 +466,22 @@ export function createCity(scene, world) {
   scene.fog = new THREE.FogExp2(0x090a14, 0.0028);
 
   scene.add(new THREE.AmbientLight(0x39405c, 0.7));
-  const moon = new THREE.DirectionalLight(0x55628c, 0.45);
-  moon.position.set(40, 80, 30);
-  scene.add(moon);
+  // Le clair de lune projette les seules ombres de la scène : une grande
+  // caméra orthographique couvre tout le monde jouable (rue + parc).
+  const moon = new THREE.DirectionalLight(0x55628c, 0.6);
+  moon.position.set(80, 160, 60);
+  moon.target.position.set(0, 0, 40);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048);
+  moon.shadow.camera.left = -150;
+  moon.shadow.camera.right = 150;
+  moon.shadow.camera.top = 170;
+  moon.shadow.camera.bottom = -170;
+  moon.shadow.camera.near = 10;
+  moon.shadow.camera.far = 420;
+  moon.shadow.bias = -0.0006;
+  moon.shadow.normalBias = 0.5;
+  scene.add(moon, moon.target);
   // Lueur d'ensemble du square : les écrans "éclairent" la place en
   // blancs chauds/froids neutres plutôt qu'en néons saturés.
   const glow = new THREE.PointLight(0xffe7d2, 110, 90, 2);

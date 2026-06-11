@@ -32,6 +32,7 @@ function buildCar(isTaxi) {
     track(new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.35, metalness: 0.6 }))
   );
   body.position.y = 0.65;
+  body.castShadow = true;
   car.add(body);
 
   const cabin = new THREE.Mesh(

@@ -16,6 +16,7 @@ import { buildCollisionWorld } from './scene/collision.js';
 import { createPlayer, PLAYER_RADIUS } from './scene/player.js';
 import { createUI } from './ui/ui.js';
 import { BOARD_DEFS } from './scene/layout.js';
+import { market } from './market/market.js';
 
 const app = document.getElementById('app');
 
@@ -24,6 +25,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
+// Ombres portées par le clair de lune — une seule lumière directionnelle
+// projette, le reste de l'éclairage reste sans ombre (perf).
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 app.appendChild(renderer.domElement);
 renderer.domElement.style.cursor = 'grab';
 
@@ -32,7 +37,15 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 
 // --- Post-traitement ---------------------------------------------------------
 
-const composer = new EffectComposer(renderer);
+// Cible de rendu multi-échantillonnée : sans elle, l'EffectComposer perd
+// l'anti-aliasing MSAA du canvas et les arêtes scintillent.
+const composer = new EffectComposer(
+  renderer,
+  new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+    type: THREE.HalfFloatType,
+    samples: 4,
+  })
+);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -134,7 +147,7 @@ window.addEventListener('resize', () => {
 const clock = new THREE.Clock();
 
 // Poignée de debug (console navigateur)
-window.__dbg = { camera, player };
+window.__dbg = { camera, player, market };
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);

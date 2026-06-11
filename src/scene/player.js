@@ -109,6 +109,10 @@ function buildCharacter(profile) {
   lantern.position.set(0, 1.9, 0.5);
   group.add(lantern);
 
+  group.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+
   return { group, legL, legR, armL, armR, materials: { jacket, pants, skin, beanie: wool } };
 }
 

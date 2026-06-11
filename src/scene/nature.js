@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { PARK, STREET } from './layout.js';
+import { makeNoiseTexture } from './city.js';
 
 // Générateur déterministe : le parc est planté pareil à chaque visite.
 function makeRng(seed) {
@@ -181,12 +182,15 @@ function addClouds(scene) {
 // --- Le parc ----------------------------------------------------------------------
 
 function addLawn(scene) {
+  const grassTex = makeNoiseTexture('#17301b', 8, { stains: 16 });
+  grassTex.repeat.set(18, 12);
   const lawn = new THREE.Mesh(
     new THREE.PlaneGeometry(PARK.xMax - PARK.xMin, PARK.zMax - PARK.zMin),
-    new THREE.MeshStandardMaterial({ color: 0x17301b, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 })
   );
   lawn.rotation.x = -Math.PI / 2;
   lawn.position.set((PARK.xMin + PARK.xMax) / 2, 0.02, (PARK.zMin + PARK.zMax) / 2);
+  lawn.receiveShadow = true;
   scene.add(lawn);
 
   // Esplanade de transition entre le bout de l'avenue et la pelouse
@@ -271,10 +275,12 @@ function addTrees(scene, world) {
   const trunkGeo = new THREE.CylinderGeometry(0.16, 0.3, 1, 7);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3526, roughness: 1 });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, spots.length);
+  trunks.castShadow = true;
 
   const leafGeo = new THREE.IcosahedronGeometry(1, 1);
   const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
   const leaves = new THREE.InstancedMesh(leafGeo, leafMat, spots.length * 3);
+  leaves.castShadow = true;
   const leafTints = [new THREE.Color(0x2a5a30), new THREE.Color(0x1f4a28), new THREE.Color(0x3a6a35)];
 
   const m = new THREE.Matrix4();
@@ -332,6 +338,7 @@ function addBenches(scene, world) {
     }
     bench.position.set(x, 0, z);
     bench.rotation.y = side > 0 ? Math.PI / 2 + 0.3 : -Math.PI / 2 - 0.3;
+    bench.traverse((o) => { o.castShadow = true; });
     scene.add(bench);
     world.addCircle(x, z, 1.1);
   });
@@ -403,6 +410,7 @@ function addHedges(scene) {
   const mk = (w, d, x, z) => {
     const hedge = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     hedge.position.set(x, h / 2, z);
+    hedge.castShadow = true;
     scene.add(hedge);
   };
   mk(PARK.xMax - PARK.xMin + 4, h, 0, PARK.zMax + 1); // fond
